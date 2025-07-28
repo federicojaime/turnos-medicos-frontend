@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
+import Card from '../ui/Card';
 
 export default function AppointmentCard({ appointment, onCancel, showActions = true }) {
   const getStatusVariant = (status) => {
@@ -26,7 +27,7 @@ export default function AppointmentCard({ appointment, onCancel, showActions = t
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+    <Card hover={true} className="transition-all duration-200">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center space-x-2 mb-2">
@@ -76,6 +77,6 @@ export default function AppointmentCard({ appointment, onCancel, showActions = t
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

@@ -1,7 +1,10 @@
-import { useState } from 'react';
+// ====== src/components/ui/Table.jsx ACTUALIZADO ======
+import React, { useState } from 'react';
 import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import Pagination from '../common/Pagination';
 import Badge from './Badge';
+import Card from './Card';
+import { SkeletonTable } from './Skeleton'; // Importar desde Skeleton.jsx
 
 export default function Table({
   columns,
@@ -9,6 +12,7 @@ export default function Table({
   pagination = null,
   onPageChange,
   sortable = true,
+  loading = false,
   className = '',
 }) {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -52,8 +56,12 @@ export default function Table({
     return item[column.key];
   };
 
+  if (loading) {
+    return <SkeletonTable rows={5} />;
+  }
+
   return (
-    <div className={`overflow-hidden ${className}`}>
+    <Card className={`overflow-hidden ${className}`} padding="none">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -62,7 +70,7 @@ export default function Table({
                 <th
                   key={column.key}
                   className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                    sortable && column.sortable !== false ? 'cursor-pointer hover:bg-gray-100' : ''
+                    sortable && column.sortable !== false ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''
                   }`}
                   onClick={() => sortable && column.sortable !== false && handleSort(column.key)}
                 >
@@ -82,7 +90,7 @@ export default function Table({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {sortedData.map((item, index) => (
-              <tr key={item.id || index} className="hover:bg-gray-50">
+              <tr key={item.id || index} className="hover:bg-gray-50 transition-colors">
                 {columns.map((column) => (
                   <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {renderCellContent(item, column)}
@@ -94,14 +102,14 @@ export default function Table({
         </table>
       </div>
 
-      {data.length === 0 && (
+      {data.length === 0 && !loading && (
         <div className="text-center py-12">
           <p className="text-gray-500">No hay datos disponibles</p>
         </div>
       )}
 
       {pagination && (
-        <div className="border-t border-gray-200 px-6 py-3">
+        <div className="border-t border-gray-200 px-6 py-3 bg-gray-50">
           <Pagination
             currentPage={pagination.page}
             totalPages={pagination.pages}
@@ -109,6 +117,6 @@ export default function Table({
           />
         </div>
       )}
-    </div>
+    </Card>
   );
 }
