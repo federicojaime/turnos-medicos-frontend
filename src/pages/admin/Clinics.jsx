@@ -105,7 +105,7 @@ export default function AdminClinics() {
         </div>
 
         {clinics.length === 0 && !loading && (
-          <div className="text-center py-12">
+          <div className="text-center py-12">  
             <p className="text-gray-500">No hay clínicas registradas</p>
           </div>
         )}
