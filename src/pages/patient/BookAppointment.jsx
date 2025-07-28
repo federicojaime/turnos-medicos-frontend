@@ -1,4 +1,100 @@
-import { useState, useEffect } from 'react';
+const createOrGetPatient = async () => {
+        try {
+            // Si el usuario está autenticado y es paciente, buscar su ID de paciente
+            if (isAuthenticated && user?.role === 'patient') {
+                console.log('👤 Usuario autenticado como paciente:', user);
+                
+                // Intentar obtener el perfil completo que puede incluir patientId
+                try {
+                    const profileResponse = await authService.getProfile();
+                    const profile = profileResponse.data.data;
+                    
+                    if (profile.patientId) {
+                        console.log('✅ PatientId encontrado en perfil:', profile.patientId);
+                        return profile.patientId;
+                    }
+                } catch (profileError) {
+                    console.warn('⚠️ No se pudo obtener perfil completo:', profileError);
+                }
+
+                // Si no tiene patientId en el perfil, buscar en la tabla patients por userId
+                try {
+                    const patientsResponse = await patientsService.getAll({ userId: user.id });
+                    const patients = patientsResponse.data.data || [];
+                    
+                    if (patients.length > 0) {
+                        console.log('✅ Paciente encontrado por userId:', patients[0].id);
+                        return patients[0].id;
+                    }
+                } catch (searchError) {
+                    console.warn('⚠️ No se pudo buscar paciente por userId:', searchError);
+                }
+            }
+
+            // Limpiar y validar datos antes de crear paciente
+            const cleanedData = {
+                firstName: patientInfo.firstName.trim(),
+                lastName: patientInfo.lastName.trim(),
+                email: patientInfo.email.trim().toLowerCase(),
+                phone: patientInfo.phone.trim()
+            };
+
+            // Solo agregar campos opcionales si tienen valor válido y no son fechas futuras
+            if (patientInfo.birthDate && patientInfo.birthDate.trim()) {
+                const birthDate = new Date(patientInfo.birthDate);
+                const today = new Date();
+                
+                // Solo agregar si la fecha es válida y no es futura
+                if (birthDate <= today) {
+                    cleanedData.birthDate = patientInfo.birthDate.trim();
+                } else {
+                    console.warn('⚠️ Fecha de nacimiento futura ignorada:', patientInfo.birthDate);
+                }
+            }
+
+            if (patientInfo.gender && patientInfo.gender.trim() && ['M', 'F', 'Other'].includes(patientInfo.gender.trim())) {
+                cleanedData.gender = patientInfo.gender.trim();
+            }
+
+            // Asociar con usuario si está autenticado
+            if (isAuthenticated && user?.id) {
+                cleanedData.userId = user.id;
+            }
+
+            console.log('📤 Creando nuevo paciente:', cleanedData);
+
+            const response = await patientsService.create(cleanedData);
+            const patientId = response.data.data.id;
+
+            console.log('✅ Paciente creado con ID:', patientId);
+            return patientId;
+
+        } catch (error) {
+            console.error('❌ Error creating/getting patient:', error);
+            console.error('📋 Response status:', error.response?.status);
+            console.error('📋 Response data:', error.response?.data);
+            
+            // Mensaje de error más específico
+            let errorMessage = 'Error al procesar datos del paciente';
+            
+            if (error.response?.status === 400) {
+                if (error.response.data?.errors && Array.isArray(error.response.data.errors)) {
+                    const validationErrors = error.response.data.errors.map(err => err.msg || err.message).join(', ');
+                    errorMessage += `: ${validationErrors}`;
+                } else if (error.response.data?.message) {
+                    errorMessage += `: ${error.response.data.message}`;
+                }
+            } else if (error.response?.status === 409) {
+                errorMessage = 'Ya existe un paciente con ese email';
+            } else if (error.response?.status === 500) {
+                errorMessage = 'Error interno del servidor. El backend puede tener un problema con los datos enviados.';
+            } else if (error.message) {
+                errorMessage += `: ${error.message}`;
+            }
+            
+            throw new Error(errorMessage);
+        }
+    };import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     CalendarDaysIcon,
@@ -18,6 +114,7 @@ import { doctorsService } from '../../api/services/doctors';
 import { clinicsService } from '../../api/services/clinics';
 import { appointmentsService } from '../../api/services/appointments';
 import { patientsService } from '../../api/services/patients';
+import { authService } from '../../api/services/auth';
 import useAuthStore from '../../store/authStore';
 
 export default function BookAppointment() {
@@ -36,6 +133,8 @@ export default function BookAppointment() {
         lastName: user?.lastName || '',
         email: user?.email || '',
         phone: user?.phone || '',
+        birthDate: '',
+        gender: '',
         reason: ''
     });
 
@@ -49,14 +148,14 @@ export default function BookAppointment() {
 
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
-    const [dateFilter, setDateFilter] = useState('hoy'); // Empezar con HOY
+    const [dateFilter, setDateFilter] = useState('hoy');
 
     useEffect(() => {
         loadInitialData();
     }, []);
 
     useEffect(() => {
-        if (!loading) { // Solo cargar slots después de que se carguen los datos iniciales
+        if (!loading) {
             loadAvailableSlots();
         }
     }, [selectedSpecialty, selectedDoctor, selectedClinic, dateFilter, loading]);
@@ -89,9 +188,7 @@ export default function BookAppointment() {
         } catch (error) {
             console.error('❌ Error loading initial data:', error);
 
-            // Fallback data más realista
-            console.log('📦 Usando datos de fallback...');
-
+            // Fallback data
             setSpecialties([
                 { id: 1, name: 'Cardiología', description: 'Especialistas en salud cardiovascular' },
                 { id: 2, name: 'Dermatología', description: 'Cuidado integral de la piel' },
@@ -124,7 +221,7 @@ export default function BookAppointment() {
         console.log('🔄 Generando slots disponibles...');
 
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Reset time to start of day
+        today.setHours(0, 0, 0, 0);
 
         const slots = [];
 
@@ -253,27 +350,54 @@ export default function BookAppointment() {
 
     const createOrGetPatient = async () => {
         try {
-            // Si el usuario está autenticado y es paciente, usar su ID
-            if (isAuthenticated && user?.role === 'patient' && user?.patientId) {
-                console.log('👤 Usando paciente autenticado:', user.patientId);
-                return user.patientId;
+            // Si el usuario está autenticado y es paciente, buscar su ID de paciente
+            if (isAuthenticated && user?.role === 'patient') {
+                console.log('👤 Usuario autenticado como paciente:', user);
+                
+                // Intentar obtener el perfil completo que puede incluir patientId
+                try {
+                    const profileResponse = await authService.getProfile();
+                    const profile = profileResponse.data.data;
+                    
+                    if (profile.patientId) {
+                        console.log('✅ PatientId encontrado en perfil:', profile.patientId);
+                        return profile.patientId;
+                    }
+                } catch (profileError) {
+                    console.warn('⚠️ No se pudo obtener perfil completo:', profileError);
+                }
+
+                // Si no tiene patientId en el perfil, buscar en la tabla patients por userId
+                try {
+                    const patientsResponse = await patientsService.getAll({ userId: user.id });
+                    const patients = patientsResponse.data.data || [];
+                    
+                    if (patients.length > 0) {
+                        console.log('✅ Paciente encontrado por userId:', patients[0].id);
+                        return patients[0].id;
+                    }
+                } catch (searchError) {
+                    console.warn('⚠️ No se pudo buscar paciente por userId:', searchError);
+                }
             }
 
-            // Si no está autenticado, crear un paciente temporal
+            // Si no está autenticado o no se encontró el paciente, crear uno nuevo
             const patientData = {
+                // Datos principales (obligatorios según backend)
                 firstName: patientInfo.firstName.trim(),
                 lastName: patientInfo.lastName.trim(),
                 email: patientInfo.email.trim(),
                 phone: patientInfo.phone.trim(),
-                birthDate: null,
-                gender: null,
-                emergencyContactName: null,
-                emergencyContactPhone: null,
-                insuranceProvider: null,
-                insuranceNumber: null
+                
+                // Datos opcionales - solo incluir si tienen valor
+                ...(patientInfo.birthDate && { birthDate: patientInfo.birthDate }),
+                ...(patientInfo.gender && { gender: patientInfo.gender }),
+                
+                // Si está autenticado, asociar con el usuario
+                ...(isAuthenticated && user?.id && { userId: user.id })
             };
 
-            console.log('📤 Creando paciente temporal:', patientData);
+            console.log('📤 Creando nuevo paciente:', patientData);
 
             const response = await patientsService.create(patientData);
             const patientId = response.data.data.id;
@@ -283,7 +407,24 @@ export default function BookAppointment() {
 
         } catch (error) {
             console.error('❌ Error creating/getting patient:', error);
-            throw new Error('Error al procesar datos del paciente: ' + (error.response?.data?.message || error.message));
+            
+            // Mensaje de error más específico
+            let errorMessage = 'Error al procesar datos del paciente';
+            
+            if (error.response?.status === 400) {
+                if (error.response.data?.errors && Array.isArray(error.response.data.errors)) {
+                    const validationErrors = error.response.data.errors.map(err => err.msg || err.message).join(', ');
+                    errorMessage += `: ${validationErrors}`;
+                } else if (error.response.data?.message) {
+                    errorMessage += `: ${error.response.data.message}`;
+                }
+            } else if (error.response?.status === 409) {
+                errorMessage = 'Ya existe un paciente con ese email';
+            } else if (error.message) {
+                errorMessage += `: ${error.message}`;
+            }
+            
+            throw new Error(errorMessage);
         }
     };
 
@@ -310,12 +451,19 @@ export default function BookAppointment() {
                 return;
             }
 
+            // Validar formato de teléfono básico
+            const phoneRegex = /^[\+]?[0-9\s\-\(\)]{8,}$/;
+            if (!phoneRegex.test(patientInfo.phone.trim())) {
+                toast.error('Por favor ingresa un teléfono válido');
+                return;
+            }
+
             console.log('🔄 Iniciando proceso de reserva...');
 
             // Paso 1: Crear o obtener paciente
             const patientId = await createOrGetPatient();
 
-            // Paso 2: Crear el turno con formato correcto
+            // Paso 2: Crear el turno con formato correcto según la documentación
             const appointmentData = {
                 patientId: parseInt(patientId),
                 doctorId: parseInt(selectedSlot.doctorId),
@@ -323,7 +471,8 @@ export default function BookAppointment() {
                 appointmentDate: selectedSlot.date, // YYYY-MM-DD
                 appointmentTime: selectedSlot.time, // HH:MM
                 reason: patientInfo.reason.trim() || 'Consulta médica',
-                duration: 30
+                notes: null, // Campo opcional
+                duration: 30 // Duración por defecto
             };
 
             console.log('📤 Creando turno con datos:', appointmentData);
@@ -350,6 +499,8 @@ export default function BookAppointment() {
                 lastName: user?.lastName || '',
                 email: user?.email || '',
                 phone: user?.phone || '',
+                birthDate: '',
+                gender: '',
                 reason: ''
             });
 
@@ -407,7 +558,7 @@ export default function BookAppointment() {
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
-            <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+            <header className="relative bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         <div className="flex items-center">
@@ -771,6 +922,46 @@ export default function BookAppointment() {
                                         required
                                     />
                                     <p className="text-xs text-gray-500 mt-1">Para recordatorios de la cita</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Fecha de Nacimiento (opcional)
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={patientInfo.birthDate}
+                                        onChange={(e) => {
+                                            const selectedDate = e.target.value;
+                                            const today = new Date().toISOString().split('T')[0];
+                                            
+                                            if (selectedDate <= today) {
+                                                setPatientInfo({ ...patientInfo, birthDate: selectedDate });
+                                            } else {
+                                                toast.error('La fecha de nacimiento no puede ser futura');
+                                                e.target.value = '';
+                                            }
+                                        }}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                                        max={new Date().toISOString().split('T')[0]}
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Debe ser una fecha pasada</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Género (opcional)
+                                    </label>
+                                    <select
+                                        value={patientInfo.gender}
+                                        onChange={(e) => setPatientInfo({ ...patientInfo, gender: e.target.value })}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        <option value="M">Masculino</option>
+                                        <option value="F">Femenino</option>
+                                        <option value="Other">Otro</option>
+                                    </select>
                                 </div>
                             </div>
 

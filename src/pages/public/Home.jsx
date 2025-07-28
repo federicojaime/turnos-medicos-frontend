@@ -23,6 +23,12 @@ import { HeartIcon as HeartSolid, StarIcon as StarSolid } from '@heroicons/react
 import apiClient from '../../api/client';
 import { ENDPOINTS } from '../../api/endpoints';
 
+// Importar logos de Alta Luna
+import altaLunaLogo from '../../assets/logos/Altaluna-logo.png';
+import altaLunaLogoWhite from '../../assets/logos/au-blanco.png';
+import altaLunaLogoLight from '../../assets/logos/au-blanco.png';
+import altaLunaIcono from '../../assets/logos/Altaluna-logo.png';
+
 export default function RevisarHomePage() {
     const navigate = useNavigate();
     const [specialties, setSpecialties] = useState([]);
@@ -142,7 +148,14 @@ export default function RevisarHomePage() {
                                 <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent">
                                     Revis.ar
                                 </span>
-                                <div className="text-xs text-gray-500 -mt-1">by Alta Luna</div>
+                                <div className="flex items-center mt-1">
+                                    <span className="text-xs text-gray-500 mr-2">by</span>
+                                    <img
+                                        src={altaLunaLogo}
+                                        alt="Alta Luna"
+                                        className="h-6 opacity-70 hover:opacity-100 transition-opacity"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -590,7 +603,14 @@ export default function RevisarHomePage() {
                                 </div>
                                 <div className="ml-3">
                                     <span className="text-2xl font-bold">Revis.ar</span>
-                                    <div className="text-xs text-gray-400">by Alta Luna</div>
+                                    <div className="flex items-center mt-1">
+                                        <span className="text-xs text-gray-400 mr-2">by</span>
+                                        <img
+                                            src={altaLunaLogoWhite}
+                                            alt="Alta Luna"
+                                            className="h-12 opacity-70 hover:opacity-100 transition-opacity"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                             <p className="text-gray-400 text-sm leading-relaxed mb-6">
@@ -602,10 +622,11 @@ export default function RevisarHomePage() {
                                 href="https://altaluna.ar"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center text-emerald-400 hover:text-emerald-300 text-sm font-medium transition-colors"
+                                className="inline-flex items-center text-emerald-400 hover:text-emerald-300 text-sm font-medium transition-colors group"
                             >
+                               
                                 <span>Desarrollado por Alta Luna</span>
-                                <ArrowRightIcon className="ml-1 h-4 w-4" />
+                                <ArrowRightIcon className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                             </a>
                         </div>
 
@@ -660,7 +681,7 @@ export default function RevisarHomePage() {
                                 <div className="flex items-center">
                                     <MapPinIcon className="h-5 w-5 mr-3 text-purple-400" />
                                     <div>
-                                        <p className="text-white font-medium">Buenos Aires, Argentina</p>
+                                        <p className="text-white font-medium">Cordoba, Argentina</p>
                                         <p className="text-xs">Cobertura Nacional</p>
                                     </div>
                                 </div>
@@ -675,11 +696,15 @@ export default function RevisarHomePage() {
                                 &copy; 2024 Revis.ar by Alta Luna. Todos los derechos reservados.
                             </p>
                             <div className="flex items-center space-x-6 mt-4 md:mt-0">
-                                <span className="text-xs text-gray-500">Powered by</span>
                                 <div className="flex items-center space-x-2">
-                                    <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-blue-500 rounded"></div>
-                                    <span className="text-sm font-medium">React & Tailwind</span>
+                                    <img
+                                        src={altaLunaLogoLight}
+                                        alt="Alta Luna"
+                                        className="h-10 opacity-60"
+                                    />
+                                    <span className="text-xs text-gray-500">Powered by Alta Luna</span>
                                 </div>
+
                             </div>
                         </div>
                     </div>
